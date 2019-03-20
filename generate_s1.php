@@ -43,7 +43,7 @@ for($i=0;$i<$roomCount;$i++)
 
 for($i=0;$i<$ticherCount;$i++)
 {
-	$tichers[] = ['name' => 'Преподаватель ' . ($i+1) , 'id' => genId(array_column($tichers, 'id')),'discs' => array_slice(randRange(array_column($discs, 'id')), 0, rand(1,4))];
+	$tichers[] = ['name' => 'Преподаватель ' . ($i+1) , 'id' => genId(array_column($tichers, 'id')),'discs' => getDiscs(array_column($discs, 'id'), array_column($tichers, 'discs'), rand(1,4)), 'id' => genId(array_column($groups, 'id'))];
 }
 
 function genId($notArr)

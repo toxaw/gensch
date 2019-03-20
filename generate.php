@@ -21,6 +21,8 @@ foreach ($groups as $group)
 
 	print_r($firstSchedule['learns_days_offers']);
 
+	print_r(recalculationLeransDiscsOffers($weightedSchedule, $firstSchedule));
+
 	die();
 }
 
@@ -35,12 +37,48 @@ function genScheduleOffers()
 	// если средне арифметическое постоянного рассписания больше остаточного, то уравниваем его на весь период
 }
 
+function recalculationLeransDiscsOffers($weightedSchedule, $firstSchedule)
+{
+	foreach($firstSchedule['learns_days_offers']['offers']['week'] as $key => $value) 
+	{
+		if($value[0])
+		{
+			foreach ($weightedSchedule[$key-1] as $svalue) 
+			{
+				if(isset($firstSchedule['lerans_discs_offers'][$svalue]))
+				{
+					$firstSchedule['lerans_discs_offers'][$svalue]--;
+				}
+			}
+		}
+
+		if($value[1])
+		{
+			foreach ($weightedSchedule[$key+5] as $svalue) 
+			{
+				if(isset($firstSchedule['lerans_discs_offers'][$svalue]))
+				{
+					$firstSchedule['lerans_discs_offers'][$svalue]--;
+				}
+			}
+		}
+	}
+	
+	foreach($firstSchedule['lerans_discs_offers'] as $key => $value) 
+	{
+		if(!$value)
+		{
+			unset($firstSchedule['lerans_discs_offers'][$key]);
+		}
+	}
+
+	return $firstSchedule['lerans_discs_offers'];
+}
+
 // второе взвешенное рассписание
 
 function genWeightedScheduleForGroup($schedule)
 {
-	$LIMIT = 20;
-
 	$norm = countNormCountLearns($schedule);
 
 	while (!isNorm($schedule, $norm)) 
@@ -202,6 +240,110 @@ function genFirstScheduleForGroup($group, $discs)
 
 function getFullTwoWeek($periodStart, $periodEnd)
 {
+	$week = ['1'=>[0,0],'2'=>[0,0],'3'=>[0,0],'4'=>[0,0],'5'=>[0,0],'6'=>[0,0]];
+
+	$format = 'd.m.Y';
+	
+	$start = DateTime::createFromFormat($format, $periodStart);
+
+	$end = DateTime::createFromFormat($format, $periodEnd);
+
+	$weekPosition = false;
+
+	for (; (int)$start->diff($end)->format('%R%a') >=0 ; $start = $start->add(new DateInterval('P1D'))) 
+	{ 
+		$weekNumber = $start->format('w');
+		
+		if($weekNumber)
+		{
+			$week[$weekNumber][$weekPosition?0:1]++;
+		}
+		else
+		{
+			$weekPosition = !$weekPosition;
+		}
+	}
+
+	$weekCount = weekMin($week);
+
+	$count = weekSum($week);
+	
+	$tw_weekCount = $weekCount['tw_min'];
+
+	$twCount = (int)($tw_weekCount/2);
+
+	$offers = $count-($twCount*6*2);
+
+	return 
+	[
+		'tw_count' 	=>  $twCount,
+		'count' 	=>	$count,
+		'offers' 	=>	['count' => $offers, 'week' => getWeekOffers($week, $weekCount['w_min'])]
+	];
+}
+
+function getWeekOffers($week, $t_min)
+{
+	foreach ($week as $key => $value) 
+	{
+		$nvalue = [];
+
+		foreach ($value as $skey => $svalue) 
+		{
+			$nvalue[$skey] = $svalue-$t_min;
+		}
+
+		$week[$key] = $nvalue;
+	}
+
+	return $week;
+}
+
+function weekMin($week)
+{
+	$arr = [];
+
+	$min = [];
+
+	foreach ($week as $value) 
+	{
+		$sum = 0;
+		
+		foreach ($value as $svalue) 
+		{
+			$sum += $svalue;
+		}
+
+		$arr[] = $sum;
+
+		$min[] = min($value);
+	}
+
+	return ['tw_min' => min($arr), 'w_min' => min($min)];
+}
+
+function weekSum($week)
+{
+	$arr = [];
+
+	foreach ($week as $value) 
+	{
+		$sum = 0;
+		
+		foreach ($value as $svalue) 
+		{
+			$sum += $svalue;
+		}
+
+		$arr[] = $sum;
+	}
+
+	return array_sum($arr);
+}
+
+/*
+function getFullTwoWeek($periodStart, $periodEnd)
+{
 	$week = ['1'=>0,'2'=>0,'3'=>0,'4'=>0,'5'=>0,'6'=>0];
 
 	$format = 'd.m.Y';
@@ -235,7 +377,7 @@ function getFullTwoWeek($periodStart, $periodEnd)
 		'offers' 	=>	$offers,
 	];
 }
-
+*/
 function getModaLearnToWeeks($twCount, $learnsCount)
 {
 	$daysCount = $twCount*2*6;
