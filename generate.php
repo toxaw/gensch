@@ -16,9 +16,26 @@ foreach ($groups as $group)
 	$weightedSchedule = genWeightedScheduleForGroup($firstSchedule['schedule']);
 
 	print_r($weightedSchedule);
+
+	print_r($firstSchedule['lerans_discs_offers']);
+
+	print_r($firstSchedule['learns_days_offers']);
+
+	die();
 }
 
-// второе взвешенное рассписание с вариантами
+// получаем рассписание для остатков
+
+function genScheduleOffers()
+{
+	// сначала все остатки сбрасываем в остаточные дни остатки пар
+
+	// уравниваем, то есть - взвешиваем
+
+	// если средне арифметическое постоянного рассписания больше остаточного, то уравниваем его на весь период
+}
+
+// второе взвешенное рассписание
 
 function genWeightedScheduleForGroup($schedule)
 {
@@ -98,8 +115,6 @@ function countNormCountLearns($schedule)
 		$counts[] = count($value);
 	}
 
-	//$max = max($counts);
-
 	$sum = array_sum($counts);
 
 	$sumMaxMin = (int)($sum/12);
@@ -137,7 +152,7 @@ function genFirstScheduleForGroup($group, $discs)
 		$groupDiscs [] = ['id' => $disc, 'learns_count' =>$discTime/2, 'learns_moda' => getModaLearnToWeeks($weekResult['tw_count'], $discTime/2)];
 	}
 
-	//возрвазаем эскиз расписания группы и остатки по дням и по предметам в количестве пар
+	//возрващаем эскиз расписания группы и остатки по дням и по предметам в количестве пар
 
 	$firstSchedule = [[],[],[],[],[],[],[],[],[],[],[],[]];
 
@@ -182,11 +197,7 @@ function genFirstScheduleForGroup($group, $discs)
 
 	}
 
-	return ['schedule'=> $firstSchedule, 'lerans_discs_offers'=> $leransDiscsOffers];
-//print_r($discs);
-	//print_r($groupDiscs);
-//	print_r($weekResult);
-	//print_r($group);
+	return ['schedule'=> $firstSchedule, 'lerans_discs_offers'=> $leransDiscsOffers, 'learns_days_offers' => $weekResult];
 }
 
 function getFullTwoWeek($periodStart, $periodEnd)
@@ -220,8 +231,8 @@ function getFullTwoWeek($periodStart, $periodEnd)
 	return 
 	[
 		'tw_count' 	=>  $twCount,
-		'offers' 	=>	$count,
-		'count' 	=>	$offers,
+		'count' 	=>	$count,
+		'offers' 	=>	$offers,
 	];
 }
 
