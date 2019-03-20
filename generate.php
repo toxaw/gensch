@@ -9,9 +9,118 @@ $groups = $input['groups'];
 
 $discs = $input['discs'];
 
-print_r(genForGroup($groups[0], $discs));
+foreach ($groups as $group) 
+{
+	$firstSchedule = genFirstScheduleForGroup($group, $discs);
 
-function genForGroup($group, $discs)
+	$weightedSchedule = genWeightedScheduleForGroup($firstSchedule['schedule']);
+
+	print_r($weightedSchedule);
+}
+
+// второе взвешенное рассписание с вариантами
+
+function genWeightedScheduleForGroup($schedule)
+{
+	$LIMIT = 20;
+
+	$norm = countNormCountLearns($schedule);
+
+	while (!isNorm($schedule, $norm)) 
+	{
+		$counts = [];
+
+		foreach ($schedule as $value) 
+		{
+			$counts[] = count($value);
+		}
+
+		$maxCount = max($counts);
+
+		$minCount = min($counts);
+
+		$maxCountsArr = [];
+
+		$minCountsArr = [];
+
+		foreach ($schedule as $key => $value) 
+		{
+			if($maxCount==count($value))
+			{
+				$maxCountsArr[] = $key;
+			}
+
+			if($minCount==count($value))
+			{
+				$minCountsArr[] = $key;
+			}
+		}
+
+		$maxDayKey = $maxCountsArr[rand(0, count($maxCountsArr)-1)];
+
+		$minDayKey = $minCountsArr[rand(0, count($minCountsArr)-1)];
+
+		$disc_id = array_shift($schedule[$maxDayKey]);
+
+		array_unshift($schedule[$minDayKey], $disc_id);	
+	}
+	
+	return $schedule;
+}
+
+function isNorm($schedule, $norm)
+{
+	$count_min = 0;
+
+	$count_max = 0;
+
+	foreach ($schedule as $value) 
+	{
+		if(count($value)==$norm['sum_min'])
+		{
+			$count_min++;
+		}
+		else if (count($value)==$norm['sum_max']) 
+		{
+			$count_max++;
+		}
+	}
+
+	return $count_min==$norm['count_min'] && $count_max==$norm['count_max'];
+}
+
+function countNormCountLearns($schedule)
+{
+	$counts = [];
+
+	foreach ($schedule as $value) 
+	{
+		$counts[] = count($value);
+	}
+
+	//$max = max($counts);
+
+	$sum = array_sum($counts);
+
+	$sumMaxMin = (int)($sum/12);
+
+	$countMaxMin = 12-($sum-($sumMaxMin*12));
+
+	$sumMaxMax = ($sum%12==0)?0:($sumMaxMin+1);
+
+	$countMaxMax = 12-$countMaxMin;
+
+	return [
+		'sum_min' 	=>	$sumMaxMin,
+		'count_min' =>	$countMaxMin,
+		'sum_max' 	=>	$sumMaxMax,
+		'count_max' =>	$countMaxMax
+		];
+}
+
+//первое сырое рассписание
+
+function genFirstScheduleForGroup($group, $discs)
 {
 	$periodStart = $group['period']['date_start'];
 
@@ -73,7 +182,7 @@ function genForGroup($group, $discs)
 
 	}
 
-	return ['first_schedule'=> $firstSchedule, 'lerans_discs_offers'=> $leransDiscsOffers];
+	return ['schedule'=> $firstSchedule, 'lerans_discs_offers'=> $leransDiscsOffers];
 //print_r($discs);
 	//print_r($groupDiscs);
 //	print_r($weekResult);

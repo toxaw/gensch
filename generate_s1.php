@@ -14,7 +14,7 @@ $periodStart = '12.01.2019';
 
 $periodEnd = '10.06.2019';
 
-$periodEnd = '10.03.2019';
+//$periodEnd = '10.03.2019';
 
 echo "<pre>";
 
