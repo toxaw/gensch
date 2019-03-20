@@ -11,43 +11,135 @@ $discs = $input['discs'];
 
 foreach ($groups as $group) 
 {
+	//получили сверх сырое расписание
+
 	$firstSchedule = genFirstScheduleForGroup($group, $discs);
+
+	//получили первое взвещенное расписание
 
 	$weightedSchedule = genWeightedScheduleForGroup($firstSchedule['schedule']);
 
-	print_r($weightedSchedule);
+	$recalculationResult = recalculationSchedule($weightedSchedule, $firstSchedule, $discs, $group['discs']);
 
-	print_r($firstSchedule['lerans_discs_offers']);
+	//получили перерасчетное расписание
 
-	print_r($firstSchedule['learns_days_offers']);
+	$weightedSchedule = $recalculationResult['weighted_schedule'];
 
-	print_r(recalculationLeransDiscsOffers($weightedSchedule, $firstSchedule));
+	//получили переработки по предметам в количестве пар
+
+	$caLeDiOf = $recalculationResult['ca_le_di_of'];
 
 	die();
 }
 
-// получаем рассписание для остатков
+//спец. расписание без переработок; отсчет с конца симместра
 
-function genScheduleOffers()
+function genSpecialSchedule($weightedSchedule, $group)
 {
-	// сначала все остатки сбрасываем в остаточные дни остатки пар
 
-	// уравниваем, то есть - взвешиваем
-
-	// если средне арифметическое постоянного рассписания больше остаточного, то уравниваем его на весь период
 }
 
-function recalculationLeransDiscsOffers($weightedSchedule, $firstSchedule)
+//перерасчет расписания
+
+function recalculationSchedule($weightedSchedule, $firstSchedule, $discs, $groupDiscs)
 {
+	foreach ($groupDiscs as $value) 
+	{			
+		do
+		{
+			$weightedScheduleBefore = $weightedSchedule;
+
+			//отняли 1 предмет
+
+			$weightedSchedule = removeOneLearns($weightedSchedule, $value);
+
+			//уравновесили
+			
+			$weightedSchedule = genWeightedScheduleForGroup($weightedSchedule);
+
+			//получили переработки
+
+			$caLeDiOf = calculationLeransDiscsOffers($weightedSchedule, $firstSchedule, $discs, $groupDiscs);
+
+			if(!isset($caLeDiOf[$value]))
+			{
+				break;
+			}
+			else if ($caLeDiOf[$value]>0)
+			{
+				$weightedSchedule = $weightedScheduleBefore;
+
+				break;
+			}
+		}
+		while (true);
+	}
+
+	return ['weighted_schedule'=>$weightedSchedule, 'ca_le_di_of' => calculationLeransDiscsOffers($weightedSchedule, $firstSchedule, $discs, $groupDiscs)];
+}
+
+function removeOneLearns($weightedSchedule, $disc_id)
+{
+	foreach ($weightedSchedule as $key => $value) 
+	{
+		foreach ($value as $skey => $svalue) 
+		{
+			if($svalue==$disc_id)
+			{
+				unset($weightedSchedule[$key][$skey]);
+
+				foreach ($weightedSchedule as $kkey => $kvalue) 
+				{
+					sort($kvalue);
+
+					$weightedSchedule[$kkey] = $kvalue;
+				}
+
+				return $weightedSchedule;
+			}
+		}
+	}
+}
+
+//расчет исчерпывающих часов пар по предметам
+
+function calculationLeransDiscsOffers($weightedSchedule, $firstSchedule, $discs, $groupDiscs)
+{
+	//reformat discs
+
+	$reformatDiscs = [];
+
+	foreach ($discs as $key => $value) 
+	{
+		if(in_array($value['id'], $groupDiscs))
+		{
+			$reformatDiscs[$value['id']] = $value['time']/2;
+		}
+	}
+
+	for ($i=0; $i < $firstSchedule['learns_days_offers']['tw_count']; $i++) 
+	{ 
+		foreach ($weightedSchedule as $value) 
+		{
+			foreach ($value as $svalue) 
+			{
+				if(isset($reformatDiscs[$svalue]))
+				{
+					$reformatDiscs[$svalue]--;
+				}
+			}
+		}		
+	}
+
 	foreach($firstSchedule['learns_days_offers']['offers']['week'] as $key => $value) 
 	{
 		if($value[0])
 		{
 			foreach ($weightedSchedule[$key-1] as $svalue) 
 			{
-				if(isset($firstSchedule['lerans_discs_offers'][$svalue]))
+				if(isset($reformatDiscs[$svalue]))
 				{
-					$firstSchedule['lerans_discs_offers'][$svalue]--;
+					$reformatDiscs[$svalue]--;
 				}
 			}
 		}
@@ -56,26 +148,26 @@ function recalculationLeransDiscsOffers($weightedSchedule, $firstSchedule)
 		{
 			foreach ($weightedSchedule[$key+5] as $svalue) 
 			{
-				if(isset($firstSchedule['lerans_discs_offers'][$svalue]))
+				if(isset($reformatDiscs[$svalue]))
 				{
-					$firstSchedule['lerans_discs_offers'][$svalue]--;
+					$reformatDiscs[$svalue]--;
 				}
 			}
 		}
 	}
 	
-	foreach($firstSchedule['lerans_discs_offers'] as $key => $value) 
+	foreach($reformatDiscs as $key => $value) 
 	{
 		if(!$value)
 		{
-			unset($firstSchedule['lerans_discs_offers'][$key]);
+			unset($reformatDiscs[$key]);
 		}
 	}
 
-	return $firstSchedule['lerans_discs_offers'];
+	return $reformatDiscs;
 }
 
-// второе взвешенное рассписание
+// второе взвешенное расписание
 
 function genWeightedScheduleForGroup($schedule)
 {
@@ -171,7 +263,7 @@ function countNormCountLearns($schedule)
 		];
 }
 
-//первое сырое рассписание
+//первое сырое расписание
 
 function genFirstScheduleForGroup($group, $discs)
 {
@@ -194,8 +286,6 @@ function genFirstScheduleForGroup($group, $discs)
 
 	$firstSchedule = [[],[],[],[],[],[],[],[],[],[],[],[]];
 
-	$leransDiscsOffers = [];
-
 	foreach ($groupDiscs as $value) 
 	{
 		$learns_moda = $value['learns_moda'];
@@ -206,7 +296,7 @@ function genFirstScheduleForGroup($group, $discs)
 			{
 				for ($i=0; $i < count($firstSchedule); $i++) 
 				{ 
-					for ($j=0; $j < $learns_moda['moda']; $j++) 
+					for ($j=0; $j < $learns_moda; $j++) 
 					{ 
 						$firstSchedule[$i][] = $value['id'];
 					}
@@ -216,26 +306,59 @@ function genFirstScheduleForGroup($group, $discs)
 			{
 				for ($i=0; $i < count($firstSchedule); $i++) 
 				{ 	 
-					if(($i+1)%abs($learns_moda['moda']))
+					if(($i+1)%abs($learns_moda)==0)
 					{
 						$firstSchedule[$i][] = $value['id'];
 					}
 				}
 			}
 
-			if($learns_moda['offers'])
-			{
-				$leransDiscsOffers[$value['id']] = $learns_moda['offers'];
-			}
+			$leransDiscsOffers[$value['id']] = $learns_moda['offers'];
 		}
-		else
-		{
-			$leransDiscsOffers[$value['id']] = $value['learns_count'];
-		}
-
 	}
 
-	return ['schedule'=> $firstSchedule, 'lerans_discs_offers'=> $leransDiscsOffers, 'learns_days_offers' => $weekResult];
+	return ['schedule'=> $firstSchedule, 'learns_days_offers' => $weekResult];
+}
+
+function getModaLearnToWeeks($twCount, $learnsCount)
+{
+	$daysCount = $twCount*2*6;
+
+	if ($learnsCount<$daysCount)
+	{
+		$i=1;
+
+		$arrDiv = [];
+
+		while ($i<$daysCount) 
+		{
+			if($daysCount%$i==0)
+			{
+				$arrDiv[$i] = $daysCount/$i;
+			}
+
+			$i++;
+		}
+
+		$arrDiv = array_reverse($arrDiv, true);
+
+		foreach ($arrDiv as $key => $value) 
+		{
+			if($value>$learnsCount)
+			{
+				$moda = -1*$key;
+
+				return $moda;
+			}
+
+		}
+	}
+	else
+	{
+		$moda = ceil($learnsCount/$daysCount);
+
+		return $moda;
+	}
 }
 
 function getFullTwoWeek($periodStart, $periodEnd)
@@ -339,87 +462,4 @@ function weekSum($week)
 	}
 
 	return array_sum($arr);
-}
-
-/*
-function getFullTwoWeek($periodStart, $periodEnd)
-{
-	$week = ['1'=>0,'2'=>0,'3'=>0,'4'=>0,'5'=>0,'6'=>0];
-
-	$format = 'd.m.Y';
-	
-	$start = DateTime::createFromFormat($format, $periodStart);
-
-	$end = DateTime::createFromFormat($format, $periodEnd);
-
-	for (; (int)$start->diff($end)->format('%R%a') >=0 ; $start = $start->add(new DateInterval('P1D'))) 
-	{ 
-		$weekNumber = $start->format('w');
-		
-		if($weekNumber)
-		{
-			$week[$weekNumber]++;
-		}
-	}
-
-	$weekCount = min($week);
-
-	$count = array_sum($week);
-
-	$twCount = (int)($weekCount/2);
-
-	$offers = $count-($twCount*6*2);
-
-	return 
-	[
-		'tw_count' 	=>  $twCount,
-		'count' 	=>	$count,
-		'offers' 	=>	$offers,
-	];
-}
-*/
-function getModaLearnToWeeks($twCount, $learnsCount)
-{
-	$daysCount = $twCount*2*6;
-
-	if ($learnsCount<$daysCount)
-	{
-		$i=1;
-
-		$arrDiv = [];
-
-		while ($i<$daysCount) 
-		{
-			if($daysCount%$i==0)
-			{
-				$arrDiv[$i] = $daysCount/$i;
-			}
-
-			$i++;
-		}
-
-		$arrDiv = array_reverse($arrDiv, true);
-
-		$minLast = 0;
-
-		foreach ($arrDiv as $key => $value) 
-		{
-			if($value>$learnsCount)
-			{
-				break;
-			}
-
-			$minLast = ['moda' => -1*$key, 'learns_count' => $value, 'offers' => $learnsCount-$value];
-		}
-
-		return $minLast;
-	}
-	else
-	{
-		$moda = (int)($learnsCount/$daysCount);
-
-		$learns_count = $moda*$daysCount; 
-
-		return ['moda' => $moda,'learns_count' => $learns_count, 'offers'=> $learnsCount-$learns_count];
-	}
 }
