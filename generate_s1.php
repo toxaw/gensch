@@ -8,6 +8,8 @@ $roomCount = 30;
 
 $discCount = 50;
 
+$ticherCount = 20;
+
 $periodStart = '12.01.2019';
 
 $periodEnd = '10.06.2019';
@@ -20,6 +22,8 @@ $rooms = [];
 
 $discs = [];
 
+$tichers = [];
+
 for($i=0;$i<$discCount;$i++)
 {
 	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_comp' => rand(0,1) ,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
@@ -27,12 +31,17 @@ for($i=0;$i<$discCount;$i++)
 
 for($i=0;$i<$groupCount;$i++)
 {
-	$groups[] = ['name' => 'Группа ' . ($i+1), 'discs' => getDiscs(array_column($discs, 'id'), array_column($groups, 'discs'), $discToGroupCount), 'id' => genId(array_column($groups, 'id')), 'periods' => getPeriods($periodStart , $periodEnd)];
+	$groups[] = ['name' => 'Группа ' . ($i+1), 'discs' => getDiscs(array_column($discs, 'id'), array_column($groups, 'discs'), $discToGroupCount), 'id' => genId(array_column($groups, 'id')), 'period' => getPeriod($periodStart , $periodEnd)];
 }
 
 for($i=0;$i<$roomCount;$i++)
 {
 	$rooms[] = ['name' => 'Аудитория ' . ($i+1), 'is_comp' => rand(0,1) , 'id' => genId(array_column($rooms, 'id'))];
+}
+
+for($i=0;$i<$ticherCount;$i++)
+{
+	$tichers[] = ['name' => 'Преподаватель ' . ($i+1) , 'id' => genId(array_column($tichers, 'id')),'discs' => array_slice(randRange(array_column($discs, 'id')), 0, rand(1,4))];
 }
 
 function genId($notArr)
@@ -137,13 +146,40 @@ function randRange($arr)
 	return $result;
 }
 
-function getPeriods($periodStart , $periodEnd)
+function getPeriod($periodStart , $periodEnd)
 {
-	return [];
+	$format = 'd.m.Y';
+	
+	$dateStart = DateTime::createFromFormat($format, $periodStart);
+
+	$dateEnd = DateTime::createFromFormat($format, $periodEnd);
+
+//$interval = $dateStart->diff($dateEnd);
+
+//echo $interval->format('%a');die();
+
+	return ['date_start' =>	$dateStart->add(new DateInterval('P'.rand(0,20).'D'))->format($format),
+			'date_end' 	 =>	$dateEnd->sub(new DateInterval('P'.rand(0,20).'D'))->format($format)
+			];
 }
 
-print_r($groups);
 
-print_r($rooms);
+//print_r($groups);
 
-print_r($discs);
+//print_r($rooms);
+
+//print_r($discs);
+
+//print_r($tichers);
+
+$resultReturn['groups'] = $groups;
+
+$resultReturn['rooms'] = $rooms;
+
+$resultReturn['discs'] = $discs;
+
+$resultReturn['tichers'] = $tichers;
+
+file_put_contents('input.json', json_encode($resultReturn));
+
+die('Входные данные готовы');
