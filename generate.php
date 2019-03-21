@@ -163,28 +163,47 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 
 					$room_id = 0;
 
-					if(!$disc['is_comp'])
-					{
-						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'], $learnsNumber)))
-						{
-							$room_id = $droom_id;
-						}
-						else
-						{
-							$room_id = getRooms(false, $roomBooked, $rooms);
+					//физра спортзал
 
-							if($room_id==null)
+					if($discs['is_splace'])
+					{
+						foreach ($rooms as $spvalue) 
+						{
+							if($spvalue['is_splace'])
 							{
-								error(1);
+								$room_id = $spvalue['id'];
+
+								break;
+							}
+						}
+							$learn['room_id'] = $room_id; 
+
+							$value['debug_info'] = ['rangesPosition' =>0, 'level'=>0];						
+					}
+					else
+					{
+						if(!$disc['is_comp'])
+						{
+							if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'], $learnsNumber)))
+							{
+								$room_id = $droom_id;
+							}
+							else
+							{
+								$room_id = getRooms(false, $roomBooked, $rooms);
+
+								if($room_id==null)
+								{
+									error(1);
+								}
+
+								$roomBooked[] = $room_id;
 							}
 
-							$roomBooked[] = $room_id;
+							$learn['room_id'] = $room_id; 
+
+							$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level];
 						}
-
-						$learn['room_id'] = $room_id; 
-
-						$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level];
-
 					}	
 				}
 			}
@@ -366,6 +385,8 @@ function getRooms($is_comp, $roomBooked, $rooms)
 
 function isBookedAmongGroups($schedules, $day, $dates, $nkey_id)
 {
+	global $discsKeys;
+
 	foreach ($schedules as $nkey => $nSoShFoGr) 
 	{	
 		foreach ($nSoShFoGr as $sckey => $schedule) 
@@ -382,7 +403,13 @@ function isBookedAmongGroups($schedules, $day, $dates, $nkey_id)
 						print_r($day);
 						print_r($schedules);
 						die();*/
-						return $lvalue['room_id'];
+						
+						$disc = $discs[array_search($lvalue['disc_id'], $discsKeys)];
+						
+						if(!$disc['is_splace'])
+						{
+							return $lvalue['room_id'];
+						}
 					}	
 				}
 	

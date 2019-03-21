@@ -28,8 +28,10 @@ $tichers = [];
 
 for($i=0;$i<$discCount;$i++)
 {
-	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_comp' => rand(0,1) ,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) ,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
 }
+
+$discs[] = ['name' => 'Физ-ра', 'is_splace'=>1, 'is_comp' => 0 ,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
 
 for($i=0;$i<$groupCount;$i++)
 {
@@ -40,6 +42,8 @@ for($i=0;$i<$roomCount;$i++)
 {
 	$rooms[] = ['name' => 'Аудитория ' . ($i+1), 'is_comp' => rand(0,1) , 'id' => genId(array_column($rooms, 'id'))];
 }
+
+$rooms[] = ['name' => 'Спортзал' ,'is_splace'=>0, 'is_comp' => 0 , 'id' => genId(array_column($rooms, 'id'))];
 
 for($i=0;$i<$ticherCount;$i++)
 {
