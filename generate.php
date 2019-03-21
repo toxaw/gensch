@@ -5,9 +5,17 @@ echo '<pre>';
 
 //print_r($input);
 
+//print_r($input['groups'][0]['period']);
+
+$gl_i = 0;
+
 $groups = $input['groups'];
 
 $discs = $input['discs'];
+
+$rooms = $input['rooms'];
+
+$noSortSchedulesForGroup = [];
 
 foreach ($groups as $group) 
 {
@@ -29,14 +37,475 @@ foreach ($groups as $group)
 
 	$caLeDiOf = $recalculationResult['ca_le_di_of'];
 
-	die();
+	//первое сырое спец. расписание
+
+	$firstSpecialScheduleResult = genSpecialSchedule($weightedSchedule, $caLeDiOf, $group, $firstSchedule['learns_days_offers']['week_position']);
+
+	$firstSpecialSchedule = array_column($firstSpecialScheduleResult, 'day');
+
+	$learnsInDayArr = [];
+
+	foreach ($weightedSchedule as $value) 
+	{
+		$learnsInDayArr[] = count($value);
+	}
+
+	$weightedSpecialSchedule = genWeightedScheduleForGroup($firstSpecialSchedule, count($firstSpecialSchedule), max($learnsInDayArr));
+	
+	// прикрепили даты к дням для спец рассписания
+
+	foreach ($weightedSpecialSchedule as $key => $value) 
+	{
+		$weightedSpecialSchedule[$key] = ['date' => [$firstSpecialScheduleResult[$key]['date']], 'day' => $value, 'is_special' => true];
+	}
+
+	// первое неотсортированное расписание с входящими датами
+
+	$dateStartWeightedSpecialSchedule = null;
+
+	if(isset($weightedSpecialSchedule[0]))
+	{
+		$dateStartWeightedSpecialSchedule = $weightedSpecialSchedule[0]['date'];
+	}
+
+	$weightedSchedule = genNoSortScheduleWidthDates($weightedSchedule, $dateStartWeightedSpecialSchedule, $group);
+
+	$noSortSchedulesForGroup[] = formatData(['weighted_schedule' => $weightedSchedule, 'special_schedule'=> $weightedSpecialSchedule]);
+
+	//print_r($noSortSchedule);
+
+	//print_r($weightedSchedule);
+
+	//print_r($weightedSpecialSchedule);
+
+	//die();
+}
+
+//выставление первичных аудиторий
+	//присваиваем аудитории предметам с компами
+		//присвоение аудитории единой аудитории повторяющемся парам
+			//устранение пересечений аудиторий между группами
+
+$discsKeys = array_column($discs,'id');
+
+foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr) 
+{	
+	foreach ($nSoShFoGr as $sckey => &$schedule) 
+	{
+		foreach ($schedule as $key => &$value) 
+		{
+			$roomBookedAll = [];
+
+			$rangesDay = getRangesDay($value['day']);
+
+			$rangesPosition = 0;
+			
+			$level = 0;
+
+			$levelBefore = 0;
+
+//global $gl_i;$gl_i++; if($gl_i==80) die(print_r($noSortSchedulesForGroup));
+			do
+			{
+				$rangesItem = itemRanges($rangesDay, $rangesPosition);
+
+				$rangesPosition = $rangesItem['position'];
+
+				$value['day'] = $rangesItem['day'];
+
+				if($levelBefore!=$level && $room_id_booked)
+				{
+					$roomBookedAll[] = $room_id_booked;
+				}
+
+				$levelBefore = $level;
+
+				if($rangesPosition==0)
+				{
+					$level++;
+				}
+
+				$roomBooked = $roomBookedAll;
+
+				foreach ($value['day'] as $learnsNumber => &$learn) 
+				{
+					$disc = $discs[array_search($learn['disc_id'], $discsKeys)];
+					
+					$room_id = 0;
+
+					if($disc['is_comp'])
+					{
+						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'])))
+						{
+							$room_id = $droom_id;
+						}
+						else
+						{
+							$room_id = getRooms(true, $roomBooked, $rooms);
+							
+							if($room_id==null)
+							{
+								error(1);
+							}
+
+							$roomBooked[] = $room_id;
+						}
+
+						$learn['room_id'] = $room_id;	
+
+						$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level];
+					}
+				}
+				
+				foreach ($value['day'] as $learnsNumber => &$learn) 
+				{
+					$disc = $discs[array_search($learn['disc_id'], $discsKeys)];
+
+					$room_id = 0;
+
+					if(!$disc['is_comp'])
+					{
+						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'])))
+						{
+							$room_id = $droom_id;
+						}
+						else
+						{
+							$room_id = getRooms(false, $roomBooked, $rooms);
+
+							if($room_id==null)
+							{
+								error(1);
+							}
+
+							$roomBooked[] = $room_id;
+						}
+
+						$learn['room_id'] = $room_id; 
+
+						$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level];
+
+					}	
+				}
+			}
+			while ($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey));	
+		}
+	}
+}
+
+print_r($noSortSchedulesForGroup);
+
+die('готово');
+
+
+//--------------------------------------------------------------------------функции
+
+//вызывается при ошибке
+
+function error($code)
+{
+	$errArr[1] = 'Нехвата аудиторий.';
+	die('Ошибка входных данных! '.$errArr[$code]);
+}
+
+//когда несколько одинаковых предметов в одном дне по просто продублируем room_id
+
+function getRoomInExistsLearn($day, $disc_id)
+{
+	foreach ($day as $key => $value) 
+	{
+		if($value['room_id'] && $value['disc_id']==$disc_id)
+		{
+			return $value['room_id'];
+		}
+	}
+}
+
+//итеровка ранжировки дня
+
+function itemRanges($rangesDay, $rangesPosition)
+{
+	$i = 0;
+
+	$c = 0;
+
+	foreach ($rangesDay as $value) 
+	{
+		foreach ($value as $svalue) 
+		{
+			$c++;
+		}
+	}
+
+	foreach ($rangesDay as $value) 
+	{
+		foreach ($value as $svalue) 
+		{
+			if($i==$rangesPosition)
+			{
+				return ['day' => $svalue, 'position' => ($c==($i+1))?0:($i+1)];
+			}
+
+			$i++;
+		}
+	}
+
+	$i = 0;
+
+	return ['day' => [], 'position' => 0];
+}
+
+//ранжировки дня
+
+function getRangesDay($_day)
+{
+	$rangesDay = [];
+
+	$day = [];
+
+	foreach ($_day as $value) 
+	{
+		$day[] = $value;
+	}
+
+	$slipsDay = getSlipDay($day);	
+
+	$i = 0;
+
+	foreach ($day as $fvalue) 
+	{
+		foreach ($slipsDay as $value) 
+		{	
+			$arr = [];
+
+			$j = 0;			
+			
+			foreach ($value as $svalue) 
+			{
+				$arr[$i+$j] = $svalue;
+
+				$j++;
+			}	
+			
+			$rangesDay[$i][] = $arr;
+			
+		}
+
+		$i++;
+
+		//ограничение
+
+		if($i==4)
+		{
+			break;
+		}
+	}
+
+	return $rangesDay;
+}
+
+// сдвиг предметов
+
+function getSlipDay($day)
+{
+	$slipsDay = [];
+
+	$slipsDay[] = $day;
+
+	foreach ($day as $value) 
+	{ 
+		$slipDay = [];
+
+		for ($i=1; $i < count($day); $i++) 
+		{ 
+			$slipDay[] = $day[$i];
+		}
+
+		if(isset($day[0]))
+		{
+			$slipDay[] = $day[0];
+		}
+
+		$day = $slipDay;
+
+		$slipsDay[] = $day;
+	}
+
+	if($slipsDay)
+	{
+		array_pop($slipsDay);
+	}
+
+	return $slipsDay;
+}
+
+//получить аудиторию
+
+function getRooms($is_comp, $roomBooked, $rooms)
+{
+	foreach ($rooms as $value) 
+	{
+		if($is_comp==$value['is_comp'] && !in_array($value['id'], $roomBooked))
+		{
+			return $value['id'];
+		}
+	}
+
+	foreach ($rooms as $value) 
+	{
+		if(!in_array($value['id'], $roomBooked))
+		{
+			return $value['id'];
+		}
+	}	
+
+	return null;
+}
+
+// все рассписания, день , текущие даты  - получаем блок или нет
+
+function isBookedAmongGroups($schedules, $day, $dates, $nkey_id)
+{
+	foreach ($schedules as $nkey => $nSoShFoGr) 
+	{	
+		foreach ($nSoShFoGr as $sckey => $schedule) 
+		{
+			foreach ($schedule as $key => $value) 
+			{
+				foreach ($day as $learnsNumber => $lvalue) 
+				{
+					if(isset($value['day'][$learnsNumber])  && $lvalue['room_id'] && $value['day'][$learnsNumber]['room_id'] && $value['day'][$learnsNumber]['room_id']==$lvalue['room_id'] && array_intersect($dates, $value['date']) && $nkey!=$nkey_id)
+					{
+						/*echo "$nkey_id $nkey<br>";
+						print_r($value);
+						print_r($dates);
+						print_r($day);
+						print_r($schedules);
+						die();*/
+						return $lvalue['room_id'];
+					}	
+				}
+	
+			}
+		}
+	}
+
+	return false;
+}
+
+function formatData($arr)
+{
+	foreach ($arr as $key => $value) 
+	{
+		foreach ($value as $skey => $svalue) 
+		{
+			foreach ($svalue['day'] as $kkey => $kvalue) 
+			{
+				$arr[$key][$skey]['day'][$kkey] = ['disc_id' => $kvalue, 'room_id' => 0];
+			}
+		}
+	}
+
+	return $arr;
+}
+
+//размножение по датам для обычного рассписания
+
+function genNoSortScheduleWidthDates($weightedSchedule, $dateStartWeightedSpecialSchedule, $group)
+{
+	$periodStart = $group['period']['date_start'];
+
+	$periodEnd = $group['period']['date_end'];
+
+	$format = 'd.m.Y';
+	
+	$start = DateTime::createFromFormat($format, $periodStart);
+
+	$end = DateTime::createFromFormat($format, $periodEnd);
+
+	$weekPosition = false;
+
+	for (; (int)$start->diff($end)->format('%R%a') >=0 ; $start = $start->add(new DateInterval('P1D'))) 
+	{ 
+		$weekNumber = $start->format('w');
+		
+		if(!$weekNumber)
+		{
+			$weekPosition = !$weekPosition;
+		}
+		else
+		{
+			if($dateStartWeightedSpecialSchedule && $start->format($format)==$dateStartWeightedSpecialSchedule)
+			{
+				return $weightedSchedule;
+			}
+			
+			if(!isset($weightedSchedule[($weekNumber-1)+($weekPosition?6:0)]['day']))
+			{
+				$weightedSchedule[($weekNumber-1)+($weekPosition?6:0)] = ['day' => $weightedSchedule[($weekNumber-1)+($weekPosition?6:0)]];
+
+				$weightedSchedule[($weekNumber-1)+($weekPosition?6:0)]['is_special'] = false;
+			}
+
+			$weightedSchedule[($weekNumber-1)+($weekPosition?6:0)]['date'][] = $start->format($format);		
+		}
+	}
+
+	return $weightedSchedule;
 }
 
 //спец. расписание без переработок; отсчет с конца симместра
 
-function genSpecialSchedule($weightedSchedule, $group)
+function genSpecialSchedule($weightedSchedule, $caLeDiOf, $group, $weekPosition)
 {
+	$periodStart = $group['period']['date_start'];
 
+	$periodEnd = $group['period']['date_end'];
+
+	$format = 'd.m.Y';
+	
+	$start = DateTime::createFromFormat($format, $periodStart);
+
+	$end = DateTime::createFromFormat($format, $periodEnd);
+
+	$specialSchedule = [];
+
+	for (; (int)$end->diff($start)->format('%R%a') <=0 ; $end = $end->sub(new DateInterval('P1D'))) 
+	{ 
+		$weekNumber = $end->format('w');
+		
+		if(!$weekNumber)
+		{
+			$weekPosition = !$weekPosition;
+		}
+		else
+		{				
+			$day = $weightedSchedule[($weekNumber-1)+($weekPosition?6:0)];
+			
+			$isConversion = false;
+
+			foreach ($caLeDiOf as $key => $value) 
+			{
+				if(($keyDay = array_search($key, $day)) && $value<0)
+				{
+					unset($day[$keyDay]);
+
+					sort($day);
+
+					$caLeDiOf[$key]++;
+
+					$isConversion = true;
+				}
+			}
+			
+			$specialSchedule[] = ['date' => $end->format($format) ,'day' => $day];
+			
+			if(!$isConversion)
+			{
+				return array_reverse($specialSchedule);
+			}
+		}
+	}
 }
 
 //перерасчет расписания
@@ -169,9 +638,9 @@ function calculationLeransDiscsOffers($weightedSchedule, $firstSchedule, $discs,
 
 // второе взвешенное расписание
 
-function genWeightedScheduleForGroup($schedule)
+function genWeightedScheduleForGroup($schedule, $countDays = 12, $maxLearnInDay = null)
 {
-	$norm = countNormCountLearns($schedule);
+	$norm = countNormCountLearns($schedule, $countDays);
 
 	while (!isNorm($schedule, $norm)) 
 	{
@@ -212,6 +681,35 @@ function genWeightedScheduleForGroup($schedule)
 		array_unshift($schedule[$minDayKey], $disc_id);	
 	}
 	
+	if($maxLearnInDay)
+	{ 
+		for ($j=1; $j < count($schedule); $j++) 
+		{
+			for ($i=1; $i < count($schedule); $i++) 
+			{ 
+				$beforeDayCount = count($schedule[$i-1]);
+
+				while ($beforeDayCount<$maxLearnInDay && count($schedule[$i])>0) 
+				{
+					$disc_id = array_shift($schedule[$i]);
+
+					array_unshift($schedule[$i-1], $disc_id);
+
+					$beforeDayCount = count($schedule[$i-1]);		
+				}
+			}
+		}
+	}
+
+	//смещение вместе одинаковых пар
+	
+	foreach ($schedule as $key => $value) 
+	{
+		sort($value);
+
+	 	$schedule[$key] = $value;
+	} 
+
 	return $schedule;
 }
 
@@ -236,7 +734,7 @@ function isNorm($schedule, $norm)
 	return $count_min==$norm['count_min'] && $count_max==$norm['count_max'];
 }
 
-function countNormCountLearns($schedule)
+function countNormCountLearns($schedule, $countDays)
 {
 	$counts = [];
 
@@ -247,13 +745,13 @@ function countNormCountLearns($schedule)
 
 	$sum = array_sum($counts);
 
-	$sumMaxMin = (int)($sum/12);
+	$sumMaxMin = (int)($sum/$countDays);
 
-	$countMaxMin = 12-($sum-($sumMaxMin*12));
+	$countMaxMin = $countDays-($sum-($sumMaxMin*$countDays));
 
-	$sumMaxMax = ($sum%12==0)?0:($sumMaxMin+1);
+	$sumMaxMax = ($sum%$countDays==0)?0:($sumMaxMin+1);
 
-	$countMaxMax = 12-$countMaxMin;
+	$countMaxMax = $countDays-$countMaxMin;
 
 	return [
 		'sum_min' 	=>	$sumMaxMin,
@@ -399,9 +897,10 @@ function getFullTwoWeek($periodStart, $periodEnd)
 
 	return 
 	[
-		'tw_count' 	=>  $twCount,
-		'count' 	=>	$count,
-		'offers' 	=>	['count' => $offers, 'week' => getWeekOffers($week, $weekCount['w_min'])]
+		'tw_count' 		=>  $twCount,
+		'count' 		=>	$count,
+		'week_position' => 	$weekPosition,
+		'offers' 		=>	['count' => $offers, 'week' => getWeekOffers($week, $weekCount['w_min'])]
 	];
 }
 
