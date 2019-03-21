@@ -28,7 +28,7 @@ $tichers = [];
 
 for($i=0;$i<$discCount;$i++)
 {
-	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) ,'recommended_ticher_id'=>0,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
 }
 
 $discs[] = ['name' => 'Физ-ра', 'is_splace'=>1, 'is_comp' => 0 , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
@@ -52,17 +52,18 @@ for($i=0;$i<$ticherCount;$i++)
 
 foreach ($tichers as $key => $value) 
 {
-	if(rand(0,3)==3 || true)
+	if(rand(0,3)==3)
 	{
+	    
 		$randGroupKey = rand(0,count($groups)-1);
 
-		$_discsGroup = array_column($groups[$randGroupKey]['discs'], 'id');
+		$_discsGroup = $groups[$randGroupKey]['discs'];
 
 		$randDiscRecom_id = $value['discs'][rand(0,count($value['discs'])-1)];
 
 		if(in_array($randDiscRecom_id, $_discsGroup) && (array_search($randDiscRecom_id, $_discsGroup)))
 		{
-			$groups[$randGroupKey]['recommended_ticher_id'][] = ['disc_id'=>$randDiscRecom_id, 'ticher_id'=>$value['id']];
+			$groups[$randGroupKey]['discs_recommended_ticher'][] = ['disc_id'=>$randDiscRecom_id, 'ticher_id'=>$value['id']];
 		}
 	}
 }

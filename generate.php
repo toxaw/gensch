@@ -3,8 +3,8 @@ $input = json_decode(file_get_contents('input.json'), true);
 
 echo '<pre>';
 
-print_r($input);
-die();
+//die(print_r($input));
+
 //print_r($input['groups'][0]['period']);
 
 $gl_i = 0;
@@ -14,6 +14,8 @@ $groups = $input['groups'];
 $discs = $input['discs'];
 
 $rooms = $input['rooms'];
+
+$tichers = $input['tichers'];
 
 $noSortSchedulesForGroup = [];
 
@@ -207,9 +209,7 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 					}	
 				}
 			}
-			while ($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey));
-
-			//прикрутка преподов	
+			while (($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey)) && !($tichersForGroup = getTichersForGroup($noSortSchedulesForGroup, $tichers, $groups, $key)));
 		}
 	}
 }
@@ -227,6 +227,20 @@ function error($code)
 {
 	$errArr[1] = 'Нехвата аудиторий.';
 	die('Ошибка входных данных! '.$errArr[$code]);
+}
+
+// получить преподов для группы
+
+function getTichersForGroup($noSortSchedulesForGroup, $tichers, $groups, $itemGroup)
+{
+    $disc = [];
+    print_r($itemGroup);
+    foreach($groups[$itemGroup]['discs'] as $disc)
+    {
+        
+    }
+    die();
+    return false;
 }
 
 //когда несколько одинаковых предметов в одном дне по просто продублируем room_id
