@@ -135,7 +135,7 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 
 					if($disc['is_comp'])
 					{
-						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'])))
+						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'], $learnsNumber)))
 						{
 							$room_id = $droom_id;
 						}
@@ -165,7 +165,7 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 
 					if(!$disc['is_comp'])
 					{
-						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'])))
+						if(isset($value['day'][$learnsNumber-1]) && ($droom_id = getRoomInExistsLearn($value['day'], $learn['disc_id'], $learnsNumber)))
 						{
 							$room_id = $droom_id;
 						}
@@ -210,11 +210,11 @@ function error($code)
 
 //когда несколько одинаковых предметов в одном дне по просто продублируем room_id
 
-function getRoomInExistsLearn($day, $disc_id)
+function getRoomInExistsLearn($day, $disc_id, $learnsNumber)
 {
 	foreach ($day as $key => $value) 
 	{
-		if($value['room_id'] && $value['disc_id']==$disc_id)
+		if($value['room_id'] && $value['disc_id']==$disc_id && $key<$learnsNumber)
 		{
 			return $value['room_id'];
 		}
