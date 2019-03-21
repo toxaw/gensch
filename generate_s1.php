@@ -28,14 +28,14 @@ $tichers = [];
 
 for($i=0;$i<$discCount;$i++)
 {
-	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) ,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) ,'recommended_ticher_id'=>0,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
 }
 
-$discs[] = ['name' => 'Физ-ра', 'is_splace'=>1, 'is_comp' => 0 ,'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+$discs[] = ['name' => 'Физ-ра', 'is_splace'=>1, 'is_comp' => 0 , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
 
 for($i=0;$i<$groupCount;$i++)
 {
-	$groups[] = ['name' => 'Группа ' . ($i+1), 'discs' => getDiscs(array_column($discs, 'id'), array_column($groups, 'discs'), $discToGroupCount), 'id' => genId(array_column($groups, 'id')), 'period' => getPeriod($periodStart , $periodEnd)];
+	$groups[] = ['name' => 'Группа ' . ($i+1), 'discs' => getDiscs(array_column($discs, 'id'), array_column($groups, 'discs'), $discToGroupCount), 'discs_recommended_ticher'=>[],  'id' => genId(array_column($groups, 'id')), 'period' => getPeriod($periodStart , $periodEnd)];
 }
 
 for($i=0;$i<$roomCount;$i++)
@@ -48,6 +48,23 @@ $rooms[] = ['name' => 'Спортзал' ,'is_splace'=>0, 'is_comp' => 0 , 'id' 
 for($i=0;$i<$ticherCount;$i++)
 {
 	$tichers[] = ['name' => 'Преподаватель ' . ($i+1) , 'id' => genId(array_column($tichers, 'id')),'discs' => getDiscs(array_column($discs, 'id'), array_column($tichers, 'discs'), rand(1,4)), 'id' => genId(array_column($groups, 'id'))];
+}
+
+foreach ($tichers as $key => $value) 
+{
+	if(rand(0,3)==3 || true)
+	{
+		$randGroupKey = rand(0,count($groups)-1);
+
+		$_discsGroup = array_column($groups[$randGroupKey]['discs'], 'id');
+
+		$randDiscRecom_id = $value['discs'][rand(0,count($value['discs'])-1)];
+
+		if(in_array($randDiscRecom_id, $_discsGroup) && (array_search($randDiscRecom_id, $_discsGroup)))
+		{
+			$groups[$randGroupKey]['recommended_ticher_id'][] = ['disc_id'=>$randDiscRecom_id, 'ticher_id'=>$value['id']];
+		}
+	}
 }
 
 function genId($notArr)

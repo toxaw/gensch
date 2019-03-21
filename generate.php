@@ -3,8 +3,8 @@ $input = json_decode(file_get_contents('input.json'), true);
 
 echo '<pre>';
 
-//print_r($input);
-
+print_r($input);
+die();
 //print_r($input['groups'][0]['period']);
 
 $gl_i = 0;
