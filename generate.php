@@ -207,7 +207,9 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 					}	
 				}
 			}
-			while ($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey));	
+			while ($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey));
+
+			//прикрутка преподов	
 		}
 	}
 }
