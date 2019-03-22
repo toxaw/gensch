@@ -1,9 +1,13 @@
 <?php
+
+set_time_limit(800);
+
 $input = json_decode(file_get_contents('input.json'), true);
 
 echo '<pre>';
 
-//die(print_r($input));
+die(print_r($input));
+//print_r($input['groups'][0]['discs']);
 
 //print_r($input['groups'][0]['period']);
 
@@ -16,7 +20,7 @@ $discs = $input['discs'];
 $rooms = $input['rooms'];
 
 $tichers = $input['tichers'];
-
+//print_r($tichers);
 $noSortSchedulesForGroup = [];
 
 foreach ($groups as $group) 
@@ -83,6 +87,8 @@ foreach ($groups as $group)
 	//die();
 }
 
+$tichersForGroupArr = [];
+
 //выставление первичных аудиторий
 	//присваиваем аудитории предметам с компами
 		//присвоение аудитории единой аудитории повторяющемся парам
@@ -90,13 +96,36 @@ foreach ($groups as $group)
 
 $discsKeys = array_column($discs,'id');
 
-foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr) 
-{	
+$bufGroup = [];
+
+//движок последнего формирования расписания
+
+function engine($nkey, &$nSoShFoGr, $combinationTichers, $combinationNumber)
+{
+	global $groups;
+
+	global $discs;
+
+	global $rooms;
+
+	global $tichers;
+
+	global $noSortSchedulesForGroup;
+
+	global $discsKeys;
+
 	foreach ($nSoShFoGr as $sckey => &$schedule) 
 	{
 		foreach ($schedule as $key => &$value) 
 		{
+			if(!$value['day'])
+			{
+				continue;
+			}
+
 			$roomBookedAll = [];
+
+			$roomBookedAllUnique = [];
 
 			$rangesDay = getRangesDay($value['day']);
 
@@ -109,6 +138,14 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 //global $gl_i;$gl_i++; if($gl_i==80) die(print_r($noSortSchedulesForGroup));
 			do
 			{
+				$ccsp = 0;
+
+				/*if($rangesPosition==0)
+				{
+					$ccsp = count($roomBookedAllUnique);
+					//echo's<br>';
+				}*/
+
 				$rangesItem = itemRanges($rangesDay, $rangesPosition);
 
 				$rangesPosition = $rangesItem['position'];
@@ -118,13 +155,24 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 				if($levelBefore!=$level && $room_id_booked)
 				{
 					$roomBookedAll[] = $room_id_booked;
+
+					$roomBookedAllUnique[$room_id_booked];
 				}
 
+//echo "$rangesPosition<br>";
+//echo'+<br>';
 				$levelBefore = $level;
 
 				if($rangesPosition==0)
 				{
 					$level++;
+
+					/*if ($ccsp==count($roomBookedAllUnique))
+					{//echo'e<br>';print_r($dd);print_r($rangesDay);
+						return false;
+					}*/
+
+					if($level==200) return false;
 				}
 
 				$roomBooked = $roomBookedAll;
@@ -147,15 +195,17 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 							
 							if($room_id==null)
 							{
-								error(1);
+								return false;
 							}
 
 							$roomBooked[] = $room_id;
+
+							$roomBookedAllUnique[$room_id];
 						}
 
 						$learn['room_id'] = $room_id;	
 
-						$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level];
+						$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level, 'combNum' => $combinationNumber];
 					}
 				}
 				
@@ -180,7 +230,7 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 						}
 							$learn['room_id'] = $room_id; 
 
-							$value['debug_info'] = ['rangesPosition' =>0, 'level'=>0];						
+							$value['debug_info'] = ['rangesPosition' =>0, 'level'=>0, 'combNum' => $combinationNumber];						
 					}
 					else
 					{
@@ -196,21 +246,60 @@ foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr)
 
 								if($room_id==null)
 								{
-									error(1);
+									return false;
 								}
 
 								$roomBooked[] = $room_id;
+
+								$roomBookedAllUnique[$room_id];
 							}
 
 							$learn['room_id'] = $room_id; 
 
-							$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level];
+							$value['debug_info'] = ['rangesPosition' =>$rangesPosition, 'level'=>$level, 'combNum' => $combinationNumber];
 						}
 					}	
 				}
 			}
-			while (($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey)) && !($tichersForGroup = getTichersForGroup($noSortSchedulesForGroup, $tichers, $groups, $key)));
+			while (($room_id_booked = isBookedAmongGroups($noSortSchedulesForGroup, $value['day'], $value['date'], $nkey)) || !isCombinatiomFree($nkey, $value['day'], $value['date'], $combinationTichers));
 		}
+	}
+
+	return true;
+}
+
+foreach ($noSortSchedulesForGroup as $nkey => &$nSoShFoGr) 
+{	
+
+	//установка комбинации преподов
+
+	$combNum = 0;
+
+	$allCombination = formatCombTichers(getTichersForGroup($tichers, $groups, $nkey));
+	
+	$trig = false;
+
+	foreach ($allCombination as $keyComb => $combinationTichers) 
+	{		
+		$trig = false;
+
+		$bufGroup = $nSoShFoGr;
+
+		if(engine($nkey, $nSoShFoGr, $combinationTichers, $keyComb))
+		{
+			$tichersForGroupArr[$nkey] = $combinationTichers;
+
+			$trig = true;
+
+			break;
+		}
+
+		$nSoShFoGr = $bufGroup;	
+	}
+
+	if(!$trig)
+	{
+		error(1);
 	}
 }
 
@@ -225,22 +314,215 @@ die('готово');
 
 function error($code)
 {
-	$errArr[1] = 'Нехвата аудиторий.';
+	$errArr[1] = 'Нехвата аудиторий или преподавателей.';
 	die('Ошибка входных данных! '.$errArr[$code]);
 }
 
 // получить преподов для группы
 
-function getTichersForGroup($noSortSchedulesForGroup, $tichers, $groups, $itemGroup)
+function getTichersForGroup($tichers, $groups, $itemGroup)
 {
-    $disc = [];
-    print_r($itemGroup);
+    $discRecommendedTicher = [];
+    
+    $discs = [];
+
+   	foreach($groups[$itemGroup]['discs_recommended_ticher'] as $discRecommended)
+    {
+        $discRecommendedTicher[$discRecommended['disc_id']] = [$discRecommended['ticher_id']];
+    }
+  
     foreach($groups[$itemGroup]['discs'] as $disc)
     {
-        
+    	$getTichers = array_keys(getTichersByDiscId($disc, $tichers));
+
+    	foreach ($getTichers as $key => $value) 
+    	{
+    		if(isset($discRecommendedTicher[$disc]) && in_array($value, $discRecommendedTicher[$disc]))
+    		{
+    			unset($getTichers[$key]);
+    		}
+    	}
+
+    	sort($getTichers);
+
+        $discs[$disc] = $getTichers;
     }
-    die();
-    return false;
+
+    $allCombination = [];
+
+    $discRecommendedTicherComb = getCombTichers($discRecommendedTicher);
+    
+    $discsComb = getCombTichers($discs);
+
+    $allCombination[] = ['recommended'=>$discRecommendedTicherComb, 'discs'=>$discsComb];
+
+    while($discRecommendedTicher)
+    {
+	    $keyRecommended = array_keys($discRecommendedTicher)[0];
+
+	    $elem = array_shift_assoc($discRecommendedTicher);
+
+	    $discs[$keyRecommended] = array_merge($discs[$keyRecommended], $elem);
+	    
+	    $discRecommendedTicherComb = getCombTichers($discRecommendedTicher);
+	    
+	    $discsComb = getCombTichers($discs);
+
+	    $allCombination[] = ['recommended'=>$discRecommendedTicherComb, 'discs'=>$discsComb];
+    }
+//print_r($allCombination);die();
+    return $allCombination;
+}
+
+// array_shift для ассоативок
+
+function array_shift_assoc( &$arr ){
+  $val = reset( $arr );
+  unset( $arr[ key( $arr ) ] );
+  return $val; 
+}
+
+//форматирование комбинациий в нормальный вид
+
+function formatCombTichers($allCombination)
+{
+	$fAllCombination = [];
+
+	foreach ($allCombination as $key => $cvalue) 
+	{
+		foreach ($cvalue['discs'] as $dkey => $dvalue) 
+		{;
+			$cc = [];
+
+			foreach ($dvalue as $skey => $svalue) 
+			{
+				$cc[$svalue['disc_id']] = $svalue['ticher_id'];
+			}
+
+			foreach ($cvalue['recommended'] as $rkey => $rvalue) 
+			{
+				$pp = $cc;
+
+				foreach ($rvalue as $qkey => $qvalue) 
+				{
+					$pp[$qvalue['disc_id']] = $qvalue['ticher_id'];
+				}
+
+				$fAllCombination [] = $pp;
+			}
+		}
+	}
+
+	return $fAllCombination;
+}
+
+//получим является ли комбинация свободной
+
+function isCombinatiomFree($groupNumber, $day, $dates, $comb2)
+{return true;
+	global $tichersForGroupArr;
+
+	global $noSortSchedulesForGroup;
+
+	global $discsKeys;
+
+	if($tichersForGroupArr)
+	{
+		foreach ($noSortSchedulesForGroup as $nkey => $nSoShFoGr) 
+		{	
+			foreach ($nSoShFoGr as $sckey => $schedule) 
+			{
+				foreach ($schedule as $key => $value) 
+				{
+					foreach ($day as $learnsNumber => $lvalue) 
+					{
+						$comb1 = $tichersForGroupArr[$nkey];
+
+						if(isset($value['day'][$learnsNumber]) && array_intersect($dates, $value['date']) && $nkey<$groupNumber && $comb2[$lvalue['disc_id']]==$comb1[$value['day'][$learnsNumber]['disc_id']])
+						{	
+							//print_r($lvalue);
+							//print_r($value['day'][$learnsNumber]);
+							//die();	
+							return false;			
+						}	
+					}
+		
+				}
+			}
+		}
+
+	}
+	else
+	{
+		return true;
+	}
+
+	return true;
+}
+
+//получить все комбинации преподов
+
+$arrComb = [];
+
+function getCombTichers($tichers)
+{
+	global $arrComb;
+
+	$arrComb = [];
+
+	rec(0,$tichers,[]);
+
+	return $arrComb;
+}
+
+//рекурсивная функция для комбинаторики преподов
+
+function rec($j,$farr,$arr)
+{
+	global $arrComb;
+
+	if($j-1==count($farr)-1)
+	{
+		$arrComb[] = $arr;
+
+		return;
+	}
+
+	if(!count($farr[array_keys($farr)[$j]]))
+	{
+		rec($j+1,$farr,$arr);
+	}
+	else
+	{
+		for ($i=0; $i < count($farr[array_keys($farr)[$j]]); $i++) 
+		{ 
+			$arr[] = [
+					'disc_id'=>array_keys($farr)[$j],
+					'ticher_id'=>$farr[array_keys($farr)[$j]][$i]
+					];
+
+			rec($j+1,$farr,$arr);
+			
+			array_pop($arr);
+		}
+	}
+}
+
+//получение препода по ид предмету
+
+function getTichersByDiscId($disc_id, $tichers)
+{
+	$tichersDisc = [];
+
+	foreach ($tichers as $value) 
+	{
+		if(in_array($disc_id, $value['discs']))
+		{
+			$tichersDisc[$value['id']] = $value['discs']; 
+		}
+	}
+
+	return $tichersDisc;
 }
 
 //когда несколько одинаковых предметов в одном дне по просто продублируем room_id
@@ -412,14 +694,7 @@ function isBookedAmongGroups($schedules, $day, $dates, $nkey_id)
 				foreach ($day as $learnsNumber => $lvalue) 
 				{
 					if(isset($value['day'][$learnsNumber])  && $lvalue['room_id'] && $value['day'][$learnsNumber]['room_id'] && $value['day'][$learnsNumber]['room_id']==$lvalue['room_id'] && array_intersect($dates, $value['date']) && $nkey!=$nkey_id)
-					{
-						/*echo "$nkey_id $nkey<br>";
-						print_r($value);
-						print_r($dates);
-						print_r($day);
-						print_r($schedules);
-						die();*/
-						
+					{						
 						$disc = $discs[array_search($lvalue['disc_id'], $discsKeys)];
 						
 						if(!$disc['is_splace'])

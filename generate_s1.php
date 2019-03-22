@@ -18,43 +18,42 @@ $periodEnd = '10.06.2019';
 
 echo "<pre>";
 
-$groups = [];
-
-$rooms = [];
-
-$discs = [];
-
-$tichers = [];
-
-for($i=0;$i<$discCount;$i++)
+do
 {
-	$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
-}
+	$groups = [];
 
-$discs[] = ['name' => 'Физ-ра', 'is_splace'=>1, 'is_comp' => 0 , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+	$rooms = [];
 
-for($i=0;$i<$groupCount;$i++)
-{
-	$groups[] = ['name' => 'Группа ' . ($i+1), 'discs' => getDiscs(array_column($discs, 'id'), array_column($groups, 'discs'), $discToGroupCount), 'discs_recommended_ticher'=>[],  'id' => genId(array_column($groups, 'id')), 'period' => getPeriod($periodStart , $periodEnd)];
-}
+	$discs = [];
 
-for($i=0;$i<$roomCount;$i++)
-{
-	$rooms[] = ['name' => 'Аудитория ' . ($i+1), 'is_comp' => rand(0,1) , 'id' => genId(array_column($rooms, 'id'))];
-}
+	$tichers = [];
 
-$rooms[] = ['name' => 'Спортзал' ,'is_splace'=>0, 'is_comp' => 0 , 'id' => genId(array_column($rooms, 'id'))];
-
-for($i=0;$i<$ticherCount;$i++)
-{
-	$tichers[] = ['name' => 'Преподаватель ' . ($i+1) , 'id' => genId(array_column($tichers, 'id')),'discs' => getDiscs(array_column($discs, 'id'), array_column($tichers, 'discs'), rand(1,4)), 'id' => genId(array_column($groups, 'id'))];
-}
-
-foreach ($tichers as $key => $value) 
-{
-	if(rand(0,3)==3)
+	for($i=0;$i<$discCount;$i++)
 	{
-	    
+		$discs[] = ['name' => 'Предмет ' . ($i+1), 'is_splace'=>0, 'is_comp' => rand(0,1) , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+	}
+
+	$discs[] = ['name' => 'Физ-ра', 'is_splace'=>1, 'is_comp' => 0 , 'time' => rand(20,80)*2, 'id' => genId(array_column($discs, 'id'))];
+
+	for($i=0;$i<$groupCount;$i++)
+	{
+		$groups[] = ['name' => 'Группа ' . ($i+1), 'discs' => getDiscs(array_column($discs, 'id'), array_column($groups, 'discs'), $discToGroupCount), 'discs_recommended_ticher'=>[],  'id' => genId(array_column($groups, 'id')), 'period' => getPeriod($periodStart , $periodEnd)];
+	}
+
+	for($i=0;$i<$roomCount;$i++)
+	{
+		$rooms[] = ['name' => 'Аудитория ' . ($i+1), 'is_comp' => rand(0,1) , 'id' => genId(array_column($rooms, 'id'))];
+	}
+
+	$rooms[] = ['name' => 'Спортзал' ,'is_splace'=>0, 'is_comp' => 0 , 'id' => genId(array_column($rooms, 'id'))];
+
+	for($i=0;$i<$ticherCount;$i++)
+	{
+		$tichers[] = ['name' => 'Преподаватель ' . ($i+1) , 'id' => genId(array_column($tichers, 'id')),'discs' => getDiscs(array_column($discs, 'id'), array_column($tichers, 'discs'), rand(1,4)), 'id' => genId(array_column($groups, 'id'))];
+	}
+
+	foreach ($tichers as $key => $value) 
+	{	    
 		$randGroupKey = rand(0,count($groups)-1);
 
 		$_discsGroup = $groups[$randGroupKey]['discs'];
@@ -66,7 +65,48 @@ foreach ($tichers as $key => $value)
 			$groups[$randGroupKey]['discs_recommended_ticher'][] = ['disc_id'=>$randDiscRecom_id, 'ticher_id'=>$value['id']];
 		}
 	}
+
+	$fall = false;
+
+	foreach ($discs as $value) 
+	{
+		$f = false;
+
+		foreach ($groups as $valued) 
+		{
+			if(in_array($value['id'], $valued['discs']))
+			{
+				$f = true;
+			}
+		}
+
+		if(!$f)
+		{
+			$fall =true;
+
+			break;
+		}
+
+		$f = false;
+		
+		foreach ($tichers as $valued) 
+		{
+			if(in_array($value['id'], $valued['discs']))
+			{
+				$f = true;
+			}			
+		}
+
+		if(!$f)
+		{
+			$fall =true;
+
+			break;
+		}
+
+	}
 }
+while ($fall);
 
 function genId($notArr)
 {
@@ -186,7 +226,6 @@ function getPeriod($periodStart , $periodEnd)
 			'date_end' 	 =>	$dateEnd->sub(new DateInterval('P'.rand(0,20).'D'))->format($format)
 			];
 }
-
 
 //print_r($groups);
 
